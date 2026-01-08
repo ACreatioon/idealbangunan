@@ -1,0 +1,19 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class product extends Model
+{
+    protected $fillable = [
+        "kode",
+        "nama_barang",
+        "stok",
+        "lokasi",
+        "harga_toko",
+        "harga_dc",
+        "harga_khusus",
+        "diskon"
+    ];
+}
