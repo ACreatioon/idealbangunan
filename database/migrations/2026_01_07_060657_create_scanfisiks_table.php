@@ -14,7 +14,8 @@ return new class extends Migration
         Schema::create('scanfisiks', function (Blueprint $table) {
             $table->id();
             $table->string('kode')->unique();
-            $table->string('qty')->default(0);
+            $table->string('inspector')->nullable();
+            $table->integer('qty')->default(0);
             $table->timestamps();
         });
     }

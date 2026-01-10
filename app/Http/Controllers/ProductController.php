@@ -14,14 +14,13 @@ class ProductController extends Controller
             'products' => Product::orderBy('created_at', 'desc')->get()
         ]);
     }
-    
+
     public function store(Request $request)
     {
         Product::create($request->only([
             'kode',
             'nama_barang',
             'lokasi',
-            'stok',
             'harga_toko',
             'harga_dc',
             'harga_khusus',
@@ -38,7 +37,6 @@ class ProductController extends Controller
             'kode',
             'nama_barang',
             'lokasi',
-            'stok',
             'harga_toko',
             'harga_dc',
             'harga_khusus',
@@ -53,5 +51,18 @@ class ProductController extends Controller
         Product::findOrFail($id)->delete();
 
         return redirect()->back()->with('success', 'Barang berhasil dihapus');
+    }
+
+    public function import(Request $request)
+    {
+        $request->validate([
+            'items' => 'required|array'
+        ]);
+
+        foreach ($request->items as $item) {
+            Product::create($item);
+        }
+
+        return back();
     }
 }

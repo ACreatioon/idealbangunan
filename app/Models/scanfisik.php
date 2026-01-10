@@ -8,6 +8,7 @@ class scanfisik extends Model
 {
     protected $fillable = [
         'kode',
+        'inspector',
         'qty',
     ];
 }

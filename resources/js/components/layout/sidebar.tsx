@@ -9,6 +9,7 @@ import {
   LogOut,
   ChevronUp,
   Scan,
+  BarChart3,
 } from "lucide-react"
 
 import {
@@ -48,9 +49,7 @@ export default function Sidebar() {
           <SidebarItem icon={<Boxes size={16} />} label="Master Barang" link="/barang" />
           <SidebarItem icon={<ClipboardCheck size={16} />} label="Opname Stok" link="/stok/opname" />
           <SidebarItem icon={<Scan size={16} />} label="Scan Fisik" link="/stok/scan-fisik" />
-          {/* <SidebarItem icon={<Receipt size={16} />} label="Penjualan" link="/penjualan" />
-          <SidebarItem icon={<ArrowLeftRight size={16} />} label="Mutasi Stok" link="/stok/mutasi" />
-          <SidebarItem icon={<BarChart3 size={16} />} label="Laporan" link="/laporan" /> */}
+          <SidebarItem icon={<BarChart3 size={16} />} label="Laporan" link="/laporan" />
         </nav>
 
         <div className="pt-4 border-t border-black/10">

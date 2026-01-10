@@ -62,6 +62,7 @@ export default function Opname({ opname }: { opname: Opname[] }) {
   const [file, setFile] = useState<File | null>(null)
   const ITEMS_PER_PAGE = 10
   const [currentPage, setCurrentPage] = useState(1)
+  const [selectedIds, setSelectedIds] = useState<number[]>([])
 
   useEffect(() => {
     setCurrentPage(1)
@@ -189,6 +190,121 @@ export default function Opname({ opname }: { opname: Opname[] }) {
     reader.readAsBinaryString(file)
   }
 
+  const handleExport = () => {
+    if (filteredProducts.length === 0) {
+      alert("Tidak ada data untuk diexport")
+      return
+    }
+
+    const exportData = filteredProducts.map((item, index) => ({
+      No: index + 1,
+      Kode: item.kode,
+      "Nama Barang": item.nama_barang,
+      "Stok Awal": item.stok_awal,
+      Masuk: item.masuk,
+      Keluar: item.keluar,
+      Sisa: item.stok_awal + item.masuk - item.keluar,
+      Satuan: item.satuan,
+    }))
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData, {
+      origin: "A4",
+    })
+
+    XLSX.utils.sheet_add_aoa(
+      worksheet,
+      [
+        ["LAPORAN STOK OPNAME"],
+        [`Tanggal Export: ${new Date().toLocaleDateString("id-ID")}`],
+      ],
+      { origin: "A1" }
+    )
+
+    worksheet["!merges"] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } },
+    ]
+
+    const headerStyle = {
+      font: { bold: true },
+      alignment: { horizontal: "center" },
+      border: {
+        top: { style: "thin" },
+        bottom: { style: "thin" },
+        left: { style: "thin" },
+        right: { style: "thin" },
+      },
+    }
+
+    const range = XLSX.utils.decode_range(worksheet["!ref"]!)
+
+    for (let C = range.s.c; C <= range.e.c; ++C) {
+      const cell = worksheet[XLSX.utils.encode_cell({ r: 3, c: C })]
+      if (cell) cell.s = headerStyle
+    }
+
+    worksheet["!cols"] = [
+      { wch: 5 },
+      { wch: 15 },
+      { wch: 35 },
+      { wch: 15 },
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 10 },
+    ]
+
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Stok Opname")
+
+    XLSX.writeFile(workbook, `stok-opname-${Date.now()}.xlsx`)
+  }
+
+  const isAllSelected =
+    paginatedData.length > 0 &&
+    paginatedData.every((item) => selectedIds.includes(item.id))
+
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedIds((prev) =>
+        prev.filter((id) => !paginatedData.some((p) => p.id === id))
+      )
+    } else {
+      setSelectedIds((prev) => [
+        ...new Set([...prev, ...paginatedData.map((p) => p.id)]),
+      ])
+    }
+  }
+
+  const toggleSelectOne = (id: number) => {
+    setSelectedIds((prev) =>
+      prev.includes(id)
+        ? prev.filter((i) => i !== id)
+        : [...prev, id]
+    )
+  }
+
+  const handleDeleteSelected = () => {
+    if (selectedIds.length === 0) return
+
+    if (!confirm("Yakin ingin menghapus data yang dipilih?")) return
+
+    router.post(
+      "/stok/opname/delete-selected",
+      { ids: selectedIds },
+      {
+        onSuccess: () => setSelectedIds([]),
+      }
+    )
+  }
+
+  const handleDeleteAll = () => {
+    if (!confirm("⚠️ SEMUA DATA akan dihapus. Lanjutkan?")) return
+
+    router.post("/stok/opname/delete-all", {
+      onSuccess: () => setSelectedIds([]),
+    })
+  }
 
 
   const submit = (e: React.FormEvent) => {
@@ -268,6 +384,15 @@ export default function Opname({ opname }: { opname: Opname[] }) {
                   Import
                 </Button>
               </DialogTrigger>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExport}
+              >
+                <Upload className="mr-2 h-4 w-4 rotate-180" />
+                Export Excel
+              </Button>
 
               <DialogContent>
                 <DialogHeader>
@@ -530,9 +655,48 @@ export default function Opname({ opname }: { opname: Opname[] }) {
                   <TableHead className="w-32 whitespace-nowrap">Keluar</TableHead>
                   <TableHead className="w-32 whitespace-nowrap">Sisa</TableHead>
                   <TableHead className="w-32 whitespace-nowrap">Satuan</TableHead>
-                  <TableHead className="w-32 whitespace-nowrap">Aksi</TableHead>
+                  <TableHead className="w-32 whitespace-nowrap gap-2 flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={isAllSelected}
+                      onChange={toggleSelectAll}
+                    />
+                    Aksi
+                  </TableHead>
                 </TableRow>
               </TableHeader>
+
+              {selectedIds.length > 0 && (
+                <TableHeader className="bg-orange-50">
+                  <TableRow>
+                    <TableCell colSpan={9}>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="text-sm font-medium">
+                          {selectedIds.length} item dipilih
+                        </span>
+
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={handleDeleteSelected}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Hapus Terpilih
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={handleDeleteAll}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Hapus Semua
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                </TableHeader>
+              )}
 
               <TableBody>
                 {paginatedData.map((item, index) => (
@@ -563,6 +727,11 @@ export default function Opname({ opname }: { opname: Opname[] }) {
                     <TableCell className="text-sm whitespace-nowrap">{item.satuan}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(item.id)}
+                          onChange={() => toggleSelectOne(item.id)}
+                        />
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0">

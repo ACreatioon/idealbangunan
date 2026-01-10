@@ -74,4 +74,15 @@ class OpnameController extends Controller
         $opname->delete();
         return redirect()->back()->with('success', 'Opname berhasil di hapus');
     }
+
+    public function deleteSelected(Request $request)
+    {
+        Opname::whereIn('id', $request->ids)->delete();
+    }
+
+    public function deleteAll()
+    {
+        Opname::truncate();
+    }
+
 }

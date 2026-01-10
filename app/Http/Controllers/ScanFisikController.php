@@ -8,18 +8,25 @@ use Illuminate\Support\Facades\DB;
 
 class ScanFisikController extends Controller
 {
-    public function store(Request $request)
+    public function import(Request $request)
     {
         $request->validate([
-            'kode' => 'required|string'
+            'items' => 'required|array'
         ]);
 
-        ScanFisik::updateOrCreate(
-            ['kode' => $request->kode],
-            ['qty' => DB::raw('qty + 1')]
-        );
+        foreach ($request->items as $item) {
+            ScanFisik::updateOrCreate(
+                [
+                    'kode' => $item['kode'],
+                    'inspector' => $item['inspector']
+                ],
+                [
+                    'qty' => DB::raw('qty + ' . (int)$item['qty'])
+                ]
+            );
+        }
 
-        return redirect()->back()->with('success', 'Barang berhasil di scan');
+        return back()->with('success', 'Import berhasil');
     }
 
     public function delete($id)
@@ -27,6 +34,19 @@ class ScanFisikController extends Controller
         ScanFisik::findOrFail($id)->delete();
 
         return redirect()->back()->with('success', 'Data scan fisik berhasil dihapus');
+    }
+
+    public function update(Request $request, $id)
+    {
+        $request->validate([
+            'qty' => 'required|integer|min:1'
+        ]);
+
+        ScanFisik::where('id', $id)->update([
+            'qty' => $request->qty
+        ]);
+
+        return back();
     }
 
     public function reset()
