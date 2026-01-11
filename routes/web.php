@@ -9,7 +9,6 @@ use App\Http\Controllers\ScanFisikController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-//ROUTE GET
 Route::get('/', function () {
     return Inertia::render('auth/login');
 })->name('login')->middleware('guest');
@@ -36,11 +35,12 @@ Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 });
 
-Route::middleware(['auth', 'role'])->group(function () {
+Route::middleware(['auth'])->group(function () {
     Route::post('/master-barang/import', [MasterBarangController::class, 'import'])
         ->name('master-barang.import');
     Route::put('/masterbarang/{id}', [MasterBarangController::class, 'update']);
     Route::delete('/masterbarang/{id}', [MasterBarangController::class, 'delete']);
+    Route::post('/masterbarang/delete-all', [MasterBarangController::class, 'deleteAll']);
 
     Route::put('/barang/{id}', [ProductController::class, 'update']);
     Route::delete('/barang/{id}', [ProductController::class, 'delete']);

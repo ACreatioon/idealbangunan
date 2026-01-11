@@ -25,12 +25,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Plus, Upload, MoreVertical, Pencil, Trash2, Printer, Columns, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Check, Download } from "lucide-react"
+import { Plus, Upload, MoreVertical, Pencil, Trash2, Printer, Columns, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Check, Download, Palette } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
 import { Label } from "@/components/ui/label"
 import { router, useForm } from "@inertiajs/react"
 import Barcode from "react-barcode"
 import JsBarcode from "jsbarcode"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface BarangForm {
   kode: string
@@ -60,6 +61,12 @@ interface SelectedItem {
   qty: number
 }
 
+interface PrintSettings {
+  fileName: string
+  headerColor: string
+  headerTextColor: string
+}
+
 export default function BarangV2({ products }: { products: Product[] }) {
   const { data, setData } = useForm<BarangForm>({
     kode: "",
@@ -82,7 +89,11 @@ export default function BarangV2({ products }: { products: Product[] }) {
     barcode: true,
   })
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([])
-  const [fileName, setFileName] = useState<string>("price-tag")
+  const [printSettings, setPrintSettings] = useState<PrintSettings>({
+    fileName: "price-tag",
+    headerColor: "#dc2626",
+    headerTextColor: "#ffffff"
+  })
   const [isGenerating, setIsGenerating] = useState(false)
   const [importFile, setImportFile] = useState<File | null>(null)
   const ITEMS_PER_PAGE = 10
@@ -225,6 +236,21 @@ export default function BarangV2({ products }: { products: Product[] }) {
     router.delete(`/barang/${id}`)
   }
 
+  const getHeaderColor = (diskon: number) => {
+    if (diskon <= 0) return { bg: "#fbbf24", text: "#000000" }
+    
+    switch(printSettings.headerColor) {
+      case "#dc2626":
+        return { bg: "#dc2626", text: "#ffffff" }
+      case "#16a34a":
+        return { bg: "#16a34a", text: "#ffffff" }
+      case "#2563eb":
+        return { bg: "#2563eb", text: "#ffffff" }
+      default:
+        return { bg: printSettings.headerColor, text: printSettings.headerTextColor }
+    }
+  }
+
   const generatePdf = async (items: SelectedItem[], fileName: string) => {
     try {
       setIsGenerating(true)
@@ -269,10 +295,11 @@ export default function BarangV2({ products }: { products: Product[] }) {
         pdf.setLineWidth(0.3)
         pdf.setDrawColor(0)
         pdf.rect(x, y, labelWidth, labelHeight)
-        if (item.diskon > 0) {
-          pdf.setFillColor(220, 38, 38)
-        } else {
-          pdf.setFillColor(255, 235, 59)
+        
+        const headerColor = getHeaderColor(item.diskon)
+        const rgb = hexToRgb(headerColor.bg)
+        if (rgb) {
+          pdf.setFillColor(rgb.r, rgb.g, rgb.b)
         }
         pdf.rect(
           x + headerPadding,
@@ -284,6 +311,7 @@ export default function BarangV2({ products }: { products: Product[] }) {
 
         pdf.setFont("helvetica", "normal")
         pdf.setFontSize(7)
+        pdf.setTextColor(hexToRgb(headerColor.text) || { r: 0, g: 0, b: 0 })
         pdf.text(item.kode, x + labelWidth / 2, y + 5, {
           align: "center",
         })
@@ -369,6 +397,15 @@ export default function BarangV2({ products }: { products: Product[] }) {
     } finally {
       setIsGenerating(false)
     }
+  }
+
+  const hexToRgb = (hex: string) => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+    return result ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16)
+    } : null
   }
 
   const generatePdfBarcode = async (items: SelectedItem[], fileName: string) => {
@@ -464,10 +501,11 @@ export default function BarangV2({ products }: { products: Product[] }) {
       </head>
       <body>
         <div class="print-container">
-          ${selectedItems.flatMap(item =>
-      Array.from({ length: item.qty }, (_, index) => `
+          ${selectedItems.flatMap(item => {
+            const headerColor = getHeaderColor(item.diskon)
+            return Array.from({ length: item.qty }, (_, index) => `
               <div class="price-tag">
-                <div style="background-color: ${item.diskon > 0 ? '#dc2626' : '#fbbf24'}; padding: 5px; margin: -10px -10px 10px -10px; text-align: center;">
+                <div style="background-color: ${headerColor.bg}; color: ${headerColor.text}; padding: 5px; margin: -10px -10px 10px -10px; text-align: center;">
                   <strong>${item.kode}</strong><br>
                   <small>${item.nama_barang}</small>
                 </div>
@@ -486,7 +524,7 @@ export default function BarangV2({ products }: { products: Product[] }) {
                 <div class="date">${new Date().toLocaleDateString('id-ID')}</div>
               </div>
             `).join('')
-    ).join('')}
+          }).join('')}
         </div>
         <script>
           window.onload = () => {
@@ -563,18 +601,18 @@ export default function BarangV2({ products }: { products: Product[] }) {
     const rawItems = jsonData
       .slice(1)
       .map(row => ({
-        kode: String(row[0] || "").trim(),        
-        nama_barang: String(row[1] || "").trim(), 
-        lokasi: "ALL",                               
-        harga_toko: 0,
-        harga_khusus: Number(
-          String(row[6] || "").replace(/[^\d]/g, "")
-        ) || 0,                                   
+        kode: String(row[0] || "").trim(),
+        nama_barang: String(row[1] || "").trim(),
+        lokasi: "ALL",
+        harga_toko: Math.floor(
+          (Number(String(row[4] || "").replace(/[^\d]/g, "")) || 0) / 1000
+        ),
+        harga_khusus: Math.floor(
+          (Number(String(row[6] || "").replace(/[^\d]/g, "")) || 0) / 1000
+        ),
         diskon: 0,
       }))
       .filter(item => item.kode && item.nama_barang)
-
-
 
     const uniqueMap = new Map<string, any>()
     rawItems.forEach(item => {
@@ -788,9 +826,76 @@ export default function BarangV2({ products }: { products: Product[] }) {
                         <Label>Nama File PDF</Label>
                         <Input
                           placeholder="contoh: price-tag-januari"
-                          value={fileName}
-                          onChange={(e) => setFileName(e.target.value)}
+                          value={printSettings.fileName}
+                          onChange={(e) => setPrintSettings(prev => ({
+                            ...prev,
+                            fileName: e.target.value
+                          }))}
                         />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Warna Header Price Tag (jika ada diskon)</Label>
+                        <div className="flex flex-wrap gap-3">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className={`flex items-center gap-2 ${printSettings.headerColor === "#dc2626" ? "ring-2 ring-orange-500" : ""}`}
+                            onClick={() => setPrintSettings(prev => ({
+                              ...prev,
+                              headerColor: "#dc2626",
+                              headerTextColor: "#ffffff"
+                            }))}
+                          >
+                            <div className="w-4 h-4 rounded-full bg-red-600"></div>
+                            <span>Merah</span>
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className={`flex items-center gap-2 ${printSettings.headerColor === "#16a34a" ? "ring-2 ring-orange-500" : ""}`}
+                            onClick={() => setPrintSettings(prev => ({
+                              ...prev,
+                              headerColor: "#16a34a",
+                              headerTextColor: "#ffffff"
+                            }))}
+                          >
+                            <div className="w-4 h-4 rounded-full bg-green-600"></div>
+                            <span>Hijau</span>
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className={`flex items-center gap-2 ${printSettings.headerColor === "#2563eb" ? "ring-2 ring-orange-500" : ""}`}
+                            onClick={() => setPrintSettings(prev => ({
+                              ...prev,
+                              headerColor: "#2563eb",
+                              headerTextColor: "#ffffff"
+                            }))}
+                          >
+                            <div className="w-4 h-4 rounded-full bg-blue-600"></div>
+                            <span>Biru</span>
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className={`flex items-center gap-2 ${printSettings.headerColor.startsWith("#") && 
+                              !["#dc2626", "#16a34a", "#2563eb"].includes(printSettings.headerColor) ? "ring-2 ring-orange-500" : ""}`}
+                            onClick={() => {
+                              const customColor = prompt("Masukkan kode warna HEX (contoh: #FF5733):", printSettings.headerColor)
+                              if (customColor && /^#[0-9A-F]{6}$/i.test(customColor)) {
+                                setPrintSettings(prev => ({
+                                  ...prev,
+                                  headerColor: customColor,
+                                  headerTextColor: getContrastColor(customColor)
+                                }))
+                              }
+                            }}
+                          >
+                            <Palette className="w-4 h-4" />
+                            <span>Custom</span>
+                          </Button>
+                        </div>
                       </div>
 
                       <div className="space-y-3">
@@ -857,7 +962,7 @@ export default function BarangV2({ products }: { products: Product[] }) {
 
                         <Button
                           variant="outline"
-                          onClick={() => generatePdf(selectedItems, fileName)}
+                          onClick={() => generatePdf(selectedItems, printSettings.fileName)}
                           disabled={isGenerating}
                           className="flex flex-col items-center justify-center h-24"
                         >
@@ -878,7 +983,7 @@ export default function BarangV2({ products }: { products: Product[] }) {
 
                         <Button
                           variant="outline"
-                          onClick={() => generatePdfBarcode(selectedItems, fileName)}
+                          onClick={() => generatePdfBarcode(selectedItems, printSettings.fileName)}
                           disabled={isGenerating}
                           className="flex flex-col items-center justify-center h-24"
                         >
@@ -995,7 +1100,6 @@ export default function BarangV2({ products }: { products: Product[] }) {
           </div>
         </div>
 
-        {/* Action bar untuk selected items */}
         {selectedItems.length > 0 && (
           <div className="bg-orange-50 border border-orange-200 rounded-md p-3">
             <div className="flex flex-wrap items-center gap-3">
@@ -1031,7 +1135,7 @@ export default function BarangV2({ products }: { products: Product[] }) {
                     <Printer className="mr-2 h-4 w-4" />
                     Cetak Price Tag
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => generatePdf(selectedItems, fileName)}>
+                  <DropdownMenuItem onClick={() => generatePdf(selectedItems, printSettings.fileName)}>
                     <Download className="mr-2 h-4 w-4" />
                     Download Price Tag (PDF)
                   </DropdownMenuItem>
@@ -1039,7 +1143,7 @@ export default function BarangV2({ products }: { products: Product[] }) {
                     <Printer className="mr-2 h-4 w-4" />
                     Cetak Barcode
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => generatePdfBarcode(selectedItems, fileName)}>
+                  <DropdownMenuItem onClick={() => generatePdfBarcode(selectedItems, printSettings.fileName)}>
                     <Download className="mr-2 h-4 w-4" />
                     Download Barcode (PDF)
                   </DropdownMenuItem>
@@ -1184,7 +1288,6 @@ export default function BarangV2({ products }: { products: Product[] }) {
               </TableBody>
             </Table>
 
-            {/* Pagination Controls */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3">
               <span className="text-sm text-muted-foreground">
                 Halaman {currentPage} dari {totalPages} • Total {totalItems} data
@@ -1243,4 +1346,20 @@ export default function BarangV2({ products }: { products: Product[] }) {
       </div>
     </AppLayout>
   )
+}
+
+function getContrastColor(hexColor: string) {
+  const rgb = hexToRgb(hexColor)
+  if (!rgb) return "#000000"
+  const brightness = (rgb.r * 299 + rgb.g * 587 + rgb.b * 114) / 1000
+  return brightness > 128 ? "#000000" : "#ffffff"
+}
+
+function hexToRgb(hex: string) {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16)
+  } : null
 }

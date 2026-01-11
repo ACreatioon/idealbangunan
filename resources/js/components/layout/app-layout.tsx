@@ -13,16 +13,17 @@ export default function AppLayout({
   subtitle,
 }: AppLayoutProps) {
   return (
-    <div className="flex-1 flex h-full overflow-hidden">
+    <div className="flex h-screen overflow-hidden">
       <Sidebar />
 
-      <div className="ml-64 h-full flex flex-col overflow-hidden">
+      <div className="ml-64 flex flex-col flex-1 overflow-hidden">
         <Topbar title={title} subtitle={subtitle} />
 
-        <main className="flex-1 p-6 overflow-y-auto max-w-[69rem]">
+        <main className="flex-1 p-6 overflow-y-auto w-full">
           {children}
         </main>
       </div>
     </div>
   )
 }
+

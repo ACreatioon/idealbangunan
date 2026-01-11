@@ -10,24 +10,31 @@ class ScanFisikController extends Controller
 {
     public function import(Request $request)
     {
-        $request->validate([
-            'items' => 'required|array'
-        ]);
+        $items = $request->input('items', []);
 
-        foreach ($request->items as $item) {
-            ScanFisik::updateOrCreate(
-                [
-                    'kode' => $item['kode'],
-                    'inspector' => $item['inspector']
-                ],
-                [
-                    'qty' => DB::raw('qty + ' . (int)$item['qty'])
-                ]
-            );
-        }
+        $payload = collect($items)
+            ->filter(fn($i) => !empty($i['kode']) && !empty($i['inspector']))
+            ->map(fn($i) => [
+                'kode' => $i['kode'],
+                'inspector' => $i['inspector'],
+                'qty' => (int) ($i['qty'] ?? 0),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ])
+            ->toArray();
 
-        return back();
+        ScanFisik::upsert(
+            $payload,
+            ['kode', 'inspector'],
+            [
+                'qty' => DB::raw('qty + VALUES(qty)'),
+                'updated_at',
+            ]
+        );
+
+        return back()->with('success', 'Import scan fisik berhasil');
     }
+
 
     public function delete($id)
     {

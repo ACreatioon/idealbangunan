@@ -31,26 +31,44 @@ class OpnameController extends Controller
 
     public function import(Request $request)
     {
-        // dd($request->all());
         $data = $request->input('data', []);
 
-        foreach ($data as $row) {
-            if (empty($row['kode'])) continue;
-
-            Opname::updateOrCreate(
-                ['kode' => $row['kode']],
-                [
-                    'nama_barang' => $row['nama_barang'],
-                    'stok_awal' => (int) $row['stok_awal'],
-                    'masuk'     => (int) $row['masuk'],
-                    'keluar'    => (int) $row['keluar'],
-                    'satuan'    => $row['satuan'],
-                ]
-            );
+        if (count($data) === 0) {
+            return back()->withErrors('Data kosong');
         }
 
-        return back();
+        $payload = collect($data)
+            ->filter(fn($row) => !empty(trim($row['kode'] ?? '')))
+            ->map(function ($row) {
+                return [
+                    'kode'        => trim($row['kode']),
+                    'nama_barang' => $row['nama_barang'] ?? '',
+                    'stok_awal'   => (int) ($row['stok_awal'] ?? 0),
+                    'masuk'       => (int) ($row['masuk'] ?? 0),
+                    'keluar'      => (int) ($row['keluar'] ?? 0),
+                    'satuan'      => $row['satuan'] ?? '',
+                    'created_at'  => now(),
+                    'updated_at'  => now(),
+                ];
+            })
+            ->toArray();
+
+        Opname::upsert(
+            $payload,
+            ['kode'],
+            [
+                'nama_barang',
+                'stok_awal',
+                'masuk',
+                'keluar',
+                'satuan',
+                'updated_at',
+            ]
+        );
+
+        return back()->with('success', 'Import opname berhasil');
     }
+
 
     public function update(Request $request, $id)
     {
@@ -84,5 +102,4 @@ class OpnameController extends Controller
     {
         Opname::truncate();
     }
-
 }

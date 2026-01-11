@@ -39,16 +39,44 @@ class ProductController extends Controller
 
     public function import(Request $request)
     {
-        $request->validate([
-            'items' => 'required|array'
-        ]);
+        $items = $request->input('items', []);
 
-        foreach ($request->items as $item) {
-            Product::updateOrCreate($item);
+        if (count($items) === 0) {
+            return back()->withErrors('Data kosong');
         }
 
-        return back();
+        $payload = collect($items)
+            ->filter(fn($item) => !empty(trim($item['kode'] ?? '')))
+            ->map(function ($item) {
+                return [
+                    'kode'          => trim($item['kode']),
+                    'nama_barang'   => $item['nama_barang'] ?? '',
+                    'lokasi'        => $item['lokasi'] ?? 'ALL',
+                    'harga_toko'    => (int) ($item['harga_toko'] ?? 0),
+                    'harga_khusus'  => (int) ($item['harga_khusus'] ?? 0),
+                    'diskon'        => (int) ($item['diskon'] ?? 0),
+                    'created_at'    => now(),
+                    'updated_at'    => now(),
+                ];
+            })
+            ->toArray();
+
+        Product::upsert(
+            $payload,
+            ['kode'],
+            [
+                'nama_barang',
+                'lokasi',
+                'harga_toko',
+                'harga_khusus',
+                'diskon',
+                'updated_at',
+            ]
+        );
+
+        return back()->with('success', 'Import produk berhasil');
     }
+
 
     public function deleteSelected(Request $request)
     {

@@ -36,18 +36,27 @@ class MasterBarangController extends Controller
             return back()->withErrors('Data kosong');
         }
 
-        foreach ($items as $item) {
-            Masterbarang::updateOrCreate(
-                ['kode' => $item['kode']],
-                [
-                    'nama_barang' => $item['nama_barang'],
-                    'lokasi' => $item['lokasi'] ?? 'ALL',
-                ]
-            );
-        }
+        $payload = collect($items)->map(function ($item) {
+            return [
+                'kode' => $item['kode'],
+                'nama_barang' => $item['nama_barang'],
+                'lokasi' => $item['lokasi'] ?? 'ALL',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        })->toArray();
 
-        return back()->with('success', 'Import master barang berhasil');
+        Masterbarang::upsert(
+            $payload,        
+            ['kode'],         
+            ['nama_barang', 'lokasi', 'updated_at']
+        );
+
+        return redirect()
+            ->route("master-barang.index")
+            ->with('success', 'Import master barang berhasil');
     }
+
 
     public function update(Request $request, $id)
     {
@@ -62,12 +71,19 @@ class MasterBarangController extends Controller
             'lokasi' => $request->lokasi ?? 'ALL',
         ]);
 
-        return back()->with('success', 'Data berhasil diupdate');
+        return back();
     }
 
     public function delete($id)
     {
         Masterbarang::findOrFail($id)->delete();
-        return back()->with('success', 'Data berhasil dihapus');
+        return back();
+    }
+
+    public function deleteAll()
+    {
+        MasterBarang::truncate();
+
+        return back();
     }
 }

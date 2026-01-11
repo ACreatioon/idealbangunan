@@ -15,6 +15,13 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import * as XLSX from "xlsx"
 
+interface ScanFisik {
+  id: number
+  kode: string
+  inspector: string
+  qty: number
+}
+
 interface Opname {
   id: number
   kode: string
@@ -23,13 +30,7 @@ interface Opname {
   masuk: number
   keluar: number
   satuan: string
-}
-
-interface ScanFisik {
-  id: number
-  kode: string
-  inspector: string
-  qty: number
+  harga_khusus?: number
 }
 
 interface LaporanItem {
@@ -41,15 +42,18 @@ interface LaporanItem {
   sisa_opname: number
   qty_scan: number
   selisih: number
+  harga_khusus: number
+  harga_total: number
   satuan: string
   inspector?: string
   hasScan: boolean
 }
 
-export default function Laporan({ 
-  opname: opnameData, 
-  scanfisik: scanData 
-}: { 
+
+export default function Laporan({
+  opname: opnameData,
+  scanfisik: scanData
+}: {
   opname: Opname[]
   scanfisik: ScanFisik[]
 }) {
@@ -85,8 +89,9 @@ export default function Laporan({
       const scanItem = scanMap.get(item.kode)
       const sisa_opname = item.stok_awal + item.masuk - item.keluar
       const qty_scan = scanItem?.qty || 0
-      const hasScan = scanItem !== undefined
       const selisih = qty_scan - sisa_opname
+      const harga_khusus = item.harga_khusus ?? 0
+      const harga_total = selisih * harga_khusus
 
       processedData.push({
         kode: item.kode,
@@ -97,9 +102,11 @@ export default function Laporan({
         sisa_opname,
         qty_scan,
         selisih,
+        harga_khusus,
+        harga_total,
         satuan: item.satuan,
         inspector: scanItem?.inspector,
-        hasScan
+        hasScan: scanItem !== undefined
       })
     })
 
@@ -112,7 +119,7 @@ export default function Laporan({
       item.nama_barang.toLowerCase().includes(keyword) ||
       item.satuan.toLowerCase().includes(keyword) ||
       (item.inspector?.toLowerCase() || '').includes(keyword)
-    
+
     if (!showAll) {
       return hasKeyword && item.hasScan
     }
@@ -132,7 +139,7 @@ export default function Laporan({
   const getPaginationRange = () => {
     const start = Math.max(1, currentPage - 2)
     const end = Math.min(totalPages, currentPage + 2)
-    
+
     const pages = []
     for (let i = start; i <= end; i++) {
       pages.push(i)
@@ -159,11 +166,16 @@ export default function Laporan({
         "Stok Awal": item.stok_awal,
         "Stok Masuk": item.masuk,
         "Stok Keluar": item.keluar,
-        "Sisa Stok": item.sisa_opname,
-        "Scan Fisik": item.qty_scan,
+        "Sisa Stok (Opname)": item.sisa_opname,
+        "Qty Scan": item.qty_scan,
         "Selisih": item.selisih,
-        "Status": item.selisih === 0 ? "SESUAI" : 
-                 item.selisih > 0 ? "LEBIH" : "KURANG",
+        "Harga Khusus (Rp)": item.harga_khusus,
+        "Harga Total (Rp)": item.harga_total,
+        "Status": item.selisih === 0
+          ? "SESUAI"
+          : item.selisih > 0
+            ? "LEBIH"
+            : "KURANG",
         "Satuan": item.satuan,
         "Inspector": item.inspector || "-"
       }))
@@ -185,7 +197,7 @@ export default function Laporan({
 
   const calculateTotals = () => {
     const filteredForTotals = showAll ? dataWithScan : filteredData
-    
+
     return filteredForTotals.reduce((acc, item) => ({
       totalSisa: acc.totalSisa + item.sisa_opname,
       totalScan: acc.totalScan + item.qty_scan,
@@ -219,7 +231,7 @@ export default function Laporan({
             </p>
             <p className="text-xs text-gray-500 mt-1">dari {laporanData.length} barang</p>
           </div>
-          
+
           <div className="bg-white p-4 rounded-lg shadow border">
             <h3 className="text-sm font-medium text-gray-500">Total Scan Fisik</h3>
             <p className="text-2xl font-bold text-orange-600">
@@ -227,26 +239,25 @@ export default function Laporan({
             </p>
             <p className="text-xs text-gray-500 mt-1">Hasil scanning fisik</p>
           </div>
-          
+
           <div className="bg-white p-4 rounded-lg shadow border">
             <h3 className="text-sm font-medium text-gray-500">Total Selisih</h3>
-            <p className={`text-2xl font-bold ${
-              totals.totalSelisih > 0 ? 'text-green-600' : 
+            <p className={`text-2xl font-bold ${totals.totalSelisih > 0 ? 'text-green-600' :
               totals.totalSelisih < 0 ? 'text-red-600' : 'text-gray-600'
-            }`}>
+              }`}>
               {totals.totalSelisih > 0 ? '+' : ''}{formatAngka(totals.totalSelisih)}
             </p>
             <p className="text-xs text-gray-500 mt-1">
-              <span className="text-green-600">{totals.countLebih} Lebih</span>, 
+              <span className="text-green-600">{totals.countLebih} Lebih</span>,
               <span className="text-red-600 ml-2">{totals.countKurang} Kurang</span>
             </p>
           </div>
-          
+
           <div className="bg-white p-4 rounded-lg shadow border">
             <h3 className="text-sm font-medium text-gray-500">Persentase Kesesuaian</h3>
             <p className="text-2xl font-bold text-purple-600">
-              {filteredData.length > 0 
-                ? Math.round((totals.countSesuai / filteredData.length) * 100) 
+              {filteredData.length > 0
+                ? Math.round((totals.countSesuai / filteredData.length) * 100)
                 : 0}%
             </p>
             <p className="text-xs text-gray-500 mt-1">
@@ -266,7 +277,7 @@ export default function Laporan({
                 className="pl-10 w-full sm:w-80"
               />
             </div>
-            
+
             <Button
               variant={showAll ? "default" : "outline"}
               size="sm"
@@ -277,7 +288,7 @@ export default function Laporan({
               {showAll ? "Semua Barang" : "Hanya Sudah Scan"}
             </Button>
           </div>
-          
+
           <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
@@ -305,18 +316,20 @@ export default function Laporan({
                   <TableHead className="text-center">Keluar</TableHead>
                   <TableHead className="text-center">Sisa (Opname)</TableHead>
                   <TableHead className="text-center">Qty Scan</TableHead>
+                  <TableHead className="text-right">Harga Khusus</TableHead>
                   <TableHead className="text-center">Selisih</TableHead>
+                  <TableHead className="text-right">Harga Total</TableHead>
                   <TableHead className="text-center">Status</TableHead>
                   <TableHead>Satuan</TableHead>
                   <TableHead>Inspector</TableHead>
                 </TableRow>
               </TableHeader>
-              
+
               <TableBody>
                 {paginatedData.length > 0 ? (
                   paginatedData.map((item, index) => (
-                    <TableRow 
-                      key={`${item.kode}-${index}`} 
+                    <TableRow
+                      key={`${item.kode}-${index}`}
                       className="hover:bg-gray-50"
                     >
                       <TableCell className="text-center">
@@ -345,24 +358,28 @@ export default function Laporan({
                       <TableCell className="text-center">
                         {formatAngka(item.qty_scan)}
                       </TableCell>
+                      <TableCell className="text-right">
+                        Rp {formatAngka(item.harga_khusus)}
+                      </TableCell>
                       <TableCell className="text-center">
-                        <span className={`font-semibold ${
-                          item.selisih > 0 ? 'text-green-600' : 
+                        <span className={`font-semibold ${item.selisih > 0 ? 'text-green-600' :
                           item.selisih < 0 ? 'text-red-600' : 'text-gray-600'
-                        }`}>
+                          }`}>
                           {item.selisih > 0 ? '+' : ''}{formatAngka(item.selisih)}
                         </span>
                       </TableCell>
+                      <TableCell className="text-right">
+                        Rp {formatAngka(item.harga_total)}
+                      </TableCell>
                       <TableCell className="text-center">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          item.selisih === 0 
-                            ? 'bg-gray-100 text-gray-800' 
-                            : item.selisih > 0 
-                            ? 'bg-green-100 text-green-800' 
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${item.selisih === 0
+                          ? 'bg-gray-100 text-gray-800'
+                          : item.selisih > 0
+                            ? 'bg-green-100 text-green-800'
                             : 'bg-red-100 text-red-800'
-                        }`}>
-                          {item.selisih === 0 ? 'SESUAI' : 
-                           item.selisih > 0 ? 'LEBIH' : 'KURANG'}
+                          }`}>
+                          {item.selisih === 0 ? 'SESUAI' :
+                            item.selisih > 0 ? 'LEBIH' : 'KURANG'}
                         </span>
                       </TableCell>
                       <TableCell>
@@ -414,7 +431,7 @@ export default function Laporan({
                   {!showAll && `(hanya barang yang sudah di-scan)`}
                 </span>
               </div>
-              
+
               <div className="flex items-center gap-1">
                 <Button
                   size="sm"
@@ -425,7 +442,7 @@ export default function Laporan({
                 >
                   <ChevronsLeft className="h-4 w-4" />
                 </Button>
-                
+
                 <Button
                   size="sm"
                   variant="outline"
@@ -435,23 +452,22 @@ export default function Laporan({
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                
+
                 {getPaginationRange().map(page => (
                   <Button
                     key={page}
                     size="sm"
                     variant={currentPage === page ? "default" : "outline"}
-                    className={`h-8 w-8 p-0 ${
-                      currentPage === page 
-                        ? 'bg-orange-600 text-white hover:bg-orange-700' 
-                        : ''
-                    }`}
+                    className={`h-8 w-8 p-0 ${currentPage === page
+                      ? 'bg-orange-600 text-white hover:bg-orange-700'
+                      : ''
+                      }`}
                     onClick={() => setCurrentPage(page)}
                   >
                     {page}
                   </Button>
                 ))}
-                
+
                 <Button
                   size="sm"
                   variant="outline"
@@ -461,7 +477,7 @@ export default function Laporan({
                 >
                   <ChevronRight className="h-4 w-4" />
                 </Button>
-                
+
                 <Button
                   size="sm"
                   variant="outline"

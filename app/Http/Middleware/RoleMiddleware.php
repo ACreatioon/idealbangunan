@@ -20,7 +20,7 @@ class RoleMiddleware
             return redirect('/');
         }
 
-        if (Auth::user()->role !== 'Administrator'){
+        if (Auth::check()){
             return redirect('/barang');
         }
 

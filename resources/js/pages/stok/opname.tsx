@@ -405,7 +405,7 @@ export default function Opname({ opname }: { opname: Opname[] }) {
                   onChange={(e) => setFile(e.target.files?.[0] || null)}
                 />
 
-                <Button className="mt-4 w-full" onClick={handleImport}>
+                <Button className="mt-4 w-full bg-orange-500 hover:bg-orange-400" onClick={handleImport}>
                   Import
                 </Button>
               </DialogContent>
