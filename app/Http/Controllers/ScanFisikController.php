@@ -15,7 +15,7 @@ class ScanFisikController extends Controller
         ]);
 
         foreach ($request->items as $item) {
-            ScanFisik::updateOrCreate(
+            ScanFisik::create(
                 [
                     'kode' => $item['kode'],
                     'inspector' => $item['inspector']
