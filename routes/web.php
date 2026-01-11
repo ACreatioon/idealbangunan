@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\LaporanController;
+use App\Http\Controllers\MasterBarangController;
 use App\Http\Controllers\OpnameController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ScanFisikController;
@@ -15,6 +16,8 @@ Route::get('/', function () {
 
 Route::middleware('auth')->group(function () {
     Route::get('/barang', [ProductController::class, 'index'])->name('barang');
+    Route::get('/masterbarang', [MasterBarangController::class, 'index'])
+        ->name('master-barang.index');
 
     Route::get('/stok/opname', [OpnameController::class, 'index'])->name('stok.opname');
 
@@ -34,6 +37,9 @@ Route::middleware('auth')->group(function () {
 });
 
 Route::middleware(['auth', 'role'])->group(function () {
+    Route::post('/master-barang/import', [MasterBarangController::class, 'import'])
+        ->name('master-barang.import');
+
     Route::put('/barang/{id}', [ProductController::class, 'update']);
     Route::delete('/barang/{id}', [ProductController::class, 'delete']);
     Route::post('/barang/import', [ProductController::class, 'import']);
@@ -51,7 +57,7 @@ Route::middleware(['auth', 'role'])->group(function () {
     Route::put('/stok/scan-fisik/{id}', [ScanFisikController::class, 'update']);
     Route::post('/stok/scan-fisik/reset', [ScanFisikController::class, 'reset']);
     Route::post('/stok/scan-fisik/import', [ScanFisikController::class, 'import']);
-    
+
     Route::get('/laporan/export', [LaporanController::class, 'exportExcel'])->name('laporan.export');
     Route::delete('/laporan/scan/{id}', [LaporanController::class, 'destroyScanFisik'])->name('laporan.scan.destroy');
 });

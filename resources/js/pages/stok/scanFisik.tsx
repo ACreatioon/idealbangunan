@@ -40,45 +40,45 @@ export default function ScanFisik({ data }: { data: ScanFisik[] }) {
   const [editId, setEditId] = useState<number | null>(null)
   const [editQty, setEditQty] = useState<number>(0)
   const [importFile, setImportFile] = useState<File | null>(null)
-  
+
   // State untuk filter dan pagination
   const [search, setSearch] = useState("")
   const [selectedInspector, setSelectedInspector] = useState<string>("all")
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
-  
+
   // Ambil daftar inspector unik dari data
   const inspectors = Array.from(new Set(data.map(item => item.inspector))).filter(Boolean)
-  
+
   // Filter data berdasarkan search dan inspector
   const filteredData = data.filter(item => {
     const matchesSearch = item.kode.toLowerCase().includes(search.toLowerCase())
     const matchesInspector = selectedInspector === "all" || item.inspector === selectedInspector
     return matchesSearch && matchesInspector
   })
-  
+
   // Hitung total data
   const totalItems = filteredData.length
   const totalPages = Math.ceil(totalItems / itemsPerPage)
-  
+
   // Paginate data
   const paginatedData = filteredData.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   )
-  
+
   // Fungsi untuk mendapatkan range pagination
   const getPaginationRange = () => {
     const start = Math.max(1, currentPage - 2)
     const end = Math.min(totalPages, currentPage + 2)
-    
+
     const pages = []
     for (let i = start; i <= end; i++) {
       pages.push(i)
     }
     return pages
   }
-  
+
   // Reset ke halaman 1 ketika filter berubah
   const handleFilterChange = () => {
     setCurrentPage(1)
@@ -90,37 +90,82 @@ export default function ScanFisik({ data }: { data: ScanFisik[] }) {
       return
     }
 
-    const buffer = await importFile.arrayBuffer()
-    const workbook = XLSX.read(buffer, { type: "array" })
-    const sheet = workbook.Sheets[workbook.SheetNames[0]]
+    try {
+      const buffer = await importFile.arrayBuffer()
+      const workbook = XLSX.read(buffer, { type: "array" })
 
-    const rows: any[] = XLSX.utils.sheet_to_json(sheet, {
-      defval: "",
-    })
+      // Ambil sheet pertama
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]]
 
-    // ambil hanya kolom yang dibutuhkan
-    const payload = rows
-      .map((row) => ({
-        kode: String(row.Barcode || "").trim(),
-        inspector: String(row.Inspector || "").trim(),
-        qty: Number(row.Quantity || 0),
-      }))
-      .filter(item => item.kode && item.qty > 0)
+      // Konversi ke JSON dengan header
+      const jsonData = XLSX.utils.sheet_to_json(worksheet)
 
-    if (payload.length === 0) {
-      alert("Data tidak valid")
-      return
-    }
+      console.log("RAW EXCEL DATA:", jsonData)
+      console.log("First item keys:", Object.keys(jsonData[0] || {}))
 
-    router.post("/stok/scan-fisik/import", {
-      items: payload
-    }, {
-      onSuccess: () => {
-        setImportFile(null)
-        alert("Import berhasil")
-        handleFilterChange()
+      // Cari nama kolom yang tepat dari data yang terbaca
+      const firstRow = jsonData[0] || {}
+      const availableColumns = Object.keys(firstRow)
+      console.log("Available columns:", availableColumns)
+
+      // Mapping data dengan nama kolom yang benar
+      const payload = jsonData
+        .map((row: any) => {
+          // Cari kolom dengan berbagai kemungkinan nama
+          const barcodeKey = availableColumns.find(col =>
+            col.toLowerCase().includes('barcode') ||
+            col.toLowerCase().includes('kode')
+          )
+
+          const quantityKey = availableColumns.find(col =>
+            col.toLowerCase().includes('quantity') ||
+            col.toLowerCase().includes('qty')
+          )
+
+          const inspectorKey = availableColumns.find(col =>
+            col.toLowerCase().includes('inspector') ||
+            col.toLowerCase().includes('pemeriksa')
+          )
+
+          const barcode = barcodeKey ? String(row[barcodeKey] || "").trim() : ""
+          const quantity = quantityKey ? parseFloat(row[quantityKey] || 0) : 0
+          const inspector = inspectorKey ? String(row[inspectorKey] || "").trim() : ""
+
+          console.log(`Row: ${barcode}, ${quantity}, ${inspector}`)
+
+          return {
+            kode: barcode,
+            inspector: inspector,
+            qty: quantity,
+          }
+        })
+        .filter(item => item.kode && item.kode.length > 0 && item.qty > 0)
+
+      console.log("PROCESSED PAYLOAD:", payload)
+
+      if (payload.length === 0) {
+        alert(`Tidak ada data valid. Kolom yang ditemukan: ${availableColumns.join(', ')}`)
+        return
       }
-    })
+
+      router.post("/stok/scan-fisik/import", {
+        items: payload
+      }, {
+        onSuccess: () => {
+          setImportFile(null)
+          alert(`Import berhasil: ${payload.length} data diproses`)
+          handleFilterChange()
+        },
+        onError: (errors) => {
+          console.error("Server error:", errors)
+          alert("Gagal mengimport: " + (errors.message || "Periksa server"))
+        }
+      })
+
+    } catch (error) {
+      console.error("Import error:", error)
+      alert("Error membaca file")
+    }
   }
 
   const handleExport = () => {
@@ -211,7 +256,7 @@ export default function ScanFisik({ data }: { data: ScanFisik[] }) {
                 className="pl-10"
               />
             </div>
-            
+
             <Select
               value={selectedInspector}
               onValueChange={(value) => {
@@ -252,7 +297,7 @@ export default function ScanFisik({ data }: { data: ScanFisik[] }) {
                 Import
               </Button>
             </div>
-            
+
             <Button variant="outline" onClick={handleExport} disabled={data.length === 0}>
               <Upload className="mr-2 h-4 w-4" />
               Export
@@ -286,8 +331,8 @@ export default function ScanFisik({ data }: { data: ScanFisik[] }) {
               {paginatedData.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                    {data.length === 0 
-                      ? "Belum ada data scan" 
+                    {data.length === 0
+                      ? "Belum ada data scan"
                       : "Tidak ada data yang sesuai dengan filter"}
                   </TableCell>
                 </TableRow>
@@ -348,7 +393,7 @@ export default function ScanFisik({ data }: { data: ScanFisik[] }) {
                   </span>
                 )}
               </div>
-              
+
               <div className="flex items-center gap-1">
                 <Button
                   size="sm"
@@ -368,7 +413,7 @@ export default function ScanFisik({ data }: { data: ScanFisik[] }) {
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                
+
                 <div className="flex gap-1 mx-2">
                   {getPaginationRange().map((page) => (
                     <Button
@@ -382,7 +427,7 @@ export default function ScanFisik({ data }: { data: ScanFisik[] }) {
                     </Button>
                   ))}
                 </div>
-                
+
                 <Button
                   size="sm"
                   variant="outline"

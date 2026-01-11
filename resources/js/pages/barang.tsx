@@ -60,7 +60,7 @@ interface SelectedItem {
   qty: number
 }
 
-export default function Barang({ products }: { products: Product[] }) {
+export default function BarangV2({ products }: { products: Product[] }) {
   const { data, setData } = useForm<BarangForm>({
     kode: "",
     nama_barang: "",
@@ -692,7 +692,7 @@ export default function Barang({ products }: { products: Product[] }) {
   }
 
   return (
-    <AppLayout title="Master Barang" subtitle="Kelola Data Master Barang">
+    <AppLayout title="BarangV2" subtitle="Kelola Price Tag dan Juga Barcode">
       <div className="space-y-4 w-full">
         <div className="flex flex-col gap-4">
           <div className="flex flex-col sm:flex-row gap-3 items-center">
