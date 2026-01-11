@@ -48,4 +48,26 @@ class MasterBarangController extends Controller
 
         return back()->with('success', 'Import master barang berhasil');
     }
+
+    public function update(Request $request, $id)
+    {
+        $request->validate([
+            'nama_barang' => 'required|string',
+            'lokasi' => 'nullable|string',
+        ]);
+
+        $item = Masterbarang::findOrFail($id);
+        $item->update([
+            'nama_barang' => $request->nama_barang,
+            'lokasi' => $request->lokasi ?? 'ALL',
+        ]);
+
+        return back()->with('success', 'Data berhasil diupdate');
+    }
+
+    public function delete($id)
+    {
+        Masterbarang::findOrFail($id)->delete();
+        return back()->with('success', 'Data berhasil dihapus');
+    }
 }

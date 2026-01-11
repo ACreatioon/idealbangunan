@@ -39,6 +39,8 @@ Route::middleware('auth')->group(function () {
 Route::middleware(['auth', 'role'])->group(function () {
     Route::post('/master-barang/import', [MasterBarangController::class, 'import'])
         ->name('master-barang.import');
+    Route::put('/masterbarang/{id}', [MasterBarangController::class, 'update']);
+    Route::delete('/masterbarang/{id}', [MasterBarangController::class, 'delete']);
 
     Route::put('/barang/{id}', [ProductController::class, 'update']);
     Route::delete('/barang/{id}', [ProductController::class, 'delete']);
