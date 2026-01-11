@@ -15,21 +15,6 @@ class ProductController extends Controller
         ]);
     }
 
-    public function store(Request $request)
-    {
-        Product::create($request->only([
-            'kode',
-            'nama_barang',
-            'lokasi',
-            'harga_toko',
-            'harga_dc',
-            'harga_khusus',
-            'diskon'
-        ]));
-
-        return redirect()->route('barang')->with('success', 'Barang berhasil ditambahkan');
-    }
-
     public function update(Request $request, $id)
     {
         $product = Product::findOrFail($id);
@@ -38,19 +23,18 @@ class ProductController extends Controller
             'nama_barang',
             'lokasi',
             'harga_toko',
-            'harga_dc',
             'harga_khusus',
             'diskon'
         ]));
 
-        return redirect()->back()->with('success', 'Barang berhasil diupdate');
+        return redirect()->back();
     }
 
     public function delete($id)
     {
         Product::findOrFail($id)->delete();
 
-        return redirect()->back()->with('success', 'Barang berhasil dihapus');
+        return redirect()->back();
     }
 
     public function import(Request $request)
@@ -60,9 +44,19 @@ class ProductController extends Controller
         ]);
 
         foreach ($request->items as $item) {
-            Product::create($item);
+            Product::updateOrCreate($item);
         }
 
         return back();
+    }
+
+    public function deleteSelected(Request $request)
+    {
+        Product::whereIn('id', $request->ids)->delete();
+    }
+
+    public function deleteAll()
+    {
+        Product::truncate();
     }
 }

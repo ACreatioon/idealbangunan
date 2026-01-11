@@ -14,10 +14,6 @@ Route::get('/', function () {
 })->name('login')->middleware('guest');
 
 Route::middleware('auth')->group(function () {
-    Route::get('/dashboard', function () {
-        return Inertia::render('dashboard');
-    })->name('dashboard');
-
     Route::get('/barang', [ProductController::class, 'index'])->name('barang');
 
     Route::get('/stok/opname', [OpnameController::class, 'index'])->name('stok.opname');
@@ -38,10 +34,11 @@ Route::middleware('auth')->group(function () {
 });
 
 Route::middleware(['auth', 'role'])->group(function () {
-    Route::post('/barang', [ProductController::class, 'store']);
     Route::put('/barang/{id}', [ProductController::class, 'update']);
     Route::delete('/barang/{id}', [ProductController::class, 'delete']);
     Route::post('/barang/import', [ProductController::class, 'import']);
+    Route::post('/barang/delete-selected', [ProductController::class, 'deleteSelected']);
+    Route::post('/barang/delete-all', [ProductController::class, 'deleteAll']);
 
     Route::post('/stok/opname', [OpnameController::class, 'store']);
     Route::post('/stok/opname/import', [OpnameController::class, 'import']);
@@ -54,9 +51,7 @@ Route::middleware(['auth', 'role'])->group(function () {
     Route::put('/stok/scan-fisik/{id}', [ScanFisikController::class, 'update']);
     Route::post('/stok/scan-fisik/reset', [ScanFisikController::class, 'reset']);
     Route::post('/stok/scan-fisik/import', [ScanFisikController::class, 'import']);
-    // Export data ke Excel
+    
     Route::get('/laporan/export', [LaporanController::class, 'exportExcel'])->name('laporan.export');
-
-    // Hapus data scan fisik (opsional)
     Route::delete('/laporan/scan/{id}', [LaporanController::class, 'destroyScanFisik'])->name('laporan.scan.destroy');
 });

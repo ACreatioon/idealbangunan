@@ -37,7 +37,6 @@ interface BarangForm {
   nama_barang: string
   lokasi: string
   harga_toko: number
-  harga_dc: number
   harga_khusus: number
   diskon: number
 }
@@ -48,7 +47,6 @@ interface Product {
   nama_barang: string
   lokasi: string
   harga_toko: number
-  harga_dc: number
   harga_khusus: number
   diskon: number
 }
@@ -63,12 +61,11 @@ interface SelectedItem {
 }
 
 export default function Barang({ products }: { products: Product[] }) {
-  const { data, setData, errors, post, processing } = useForm<BarangForm>({
+  const { data, setData } = useForm<BarangForm>({
     kode: "",
     nama_barang: "",
     lokasi: "",
     harga_toko: 0,
-    harga_dc: 0,
     harga_khusus: 0,
     diskon: 0,
   })
@@ -80,7 +77,6 @@ export default function Barang({ products }: { products: Product[] }) {
     nama_barang: true,
     lokasi: true,
     harga_toko: true,
-    harga_dc: true,
     harga_khusus: true,
     diskon: true,
     barcode: true,
@@ -140,7 +136,7 @@ export default function Barang({ products }: { products: Product[] }) {
   const getPaginationRange = () => {
     const start = Math.max(1, currentPage - 2)
     const end = Math.min(totalPages, currentPage + 2)
-    
+
     const pages = []
     for (let i = start; i <= end; i++) {
       pages.push(i)
@@ -148,12 +144,12 @@ export default function Barang({ products }: { products: Product[] }) {
     return pages
   }
 
-  const isAllSelected = paginatedData.length > 0 && 
+  const isAllSelected = paginatedData.length > 0 &&
     paginatedData.every((item) => selectedItems.some(selected => selected.id === item.id))
 
   const toggleSelectAll = () => {
     if (isAllSelected) {
-      setSelectedItems(prev => 
+      setSelectedItems(prev =>
         prev.filter(item => !paginatedData.some(p => p.id === item.id))
       )
     } else {
@@ -167,7 +163,7 @@ export default function Barang({ products }: { products: Product[] }) {
           kode: item.kode,
           qty: 1
         }))
-      
+
       setSelectedItems(prev => [...prev, ...itemsToAdd])
     }
   }
@@ -204,9 +200,9 @@ export default function Barang({ products }: { products: Product[] }) {
   const handleDeleteSelected = () => {
     if (selectedItems.length === 0) return
     if (!confirm(`Yakin ingin menghapus ${selectedItems.length} data yang dipilih?`)) return
-    
-    router.post("/barang/delete-selected", { 
-      ids: selectedItems.map(item => item.id) 
+
+    router.post("/barang/delete-selected", {
+      ids: selectedItems.map(item => item.id)
     }, {
       onSuccess: () => {
         setSelectedItems([])
@@ -216,7 +212,7 @@ export default function Barang({ products }: { products: Product[] }) {
 
   const handleDeleteAll = () => {
     if (!confirm("⚠️ SEMUA DATA BARANG akan dihapus. Tindakan ini tidak dapat dibatalkan! Lanjutkan?")) return
-    
+
     router.post("/barang/delete-all", {
       onSuccess: () => {
         setSelectedItems([])
@@ -229,7 +225,6 @@ export default function Barang({ products }: { products: Product[] }) {
     router.delete(`/barang/${id}`)
   }
 
-  // PDF Generation functions
   const generatePdf = async (items: SelectedItem[], fileName: string) => {
     try {
       setIsGenerating(true)
@@ -469,8 +464,8 @@ export default function Barang({ products }: { products: Product[] }) {
       </head>
       <body>
         <div class="print-container">
-          ${selectedItems.flatMap(item => 
-            Array.from({ length: item.qty }, (_, index) => `
+          ${selectedItems.flatMap(item =>
+      Array.from({ length: item.qty }, (_, index) => `
               <div class="price-tag">
                 <div style="background-color: ${item.diskon > 0 ? '#dc2626' : '#fbbf24'}; padding: 5px; margin: -10px -10px 10px -10px; text-align: center;">
                   <strong>${item.kode}</strong><br>
@@ -491,7 +486,7 @@ export default function Barang({ products }: { products: Product[] }) {
                 <div class="date">${new Date().toLocaleDateString('id-ID')}</div>
               </div>
             `).join('')
-          ).join('')}
+    ).join('')}
         </div>
         <script>
           window.onload = () => {
@@ -526,8 +521,8 @@ export default function Barang({ products }: { products: Product[] }) {
       </head>
       <body>
         <div class="barcode-container">
-          ${selectedItems.flatMap(item => 
-            Array.from({ length: item.qty }, (_, index) => `
+          ${selectedItems.flatMap(item =>
+      Array.from({ length: item.qty }, (_, index) => `
               <div class="barcode-item">
                 <div class="barcode-name">${item.nama_barang}</div>
                 <svg class="barcode"
@@ -538,7 +533,7 @@ export default function Barang({ products }: { products: Product[] }) {
                 </svg>
               </div>
             `).join('')
-          ).join('')}
+    ).join('')}
         </div>
         <script>
           JsBarcode(".barcode").init();
@@ -560,22 +555,26 @@ export default function Barang({ products }: { products: Product[] }) {
     const buffer = await importFile.arrayBuffer()
     const workbook = XLSX.read(buffer, { type: "array" })
     const sheet = workbook.Sheets[workbook.SheetNames[0]]
-
-    const rows: any[][] = XLSX.utils.sheet_to_json(sheet, {
+    const jsonData = XLSX.utils.sheet_to_json<any[]>(sheet, {
       header: 1,
       defval: "",
     })
 
-    const rawItems = rows.slice(2).map((row) => ({
-      kode: String(row[1]).trim(),
-      nama_barang: String(row[3]).trim(),
-      lokasi: "ALL",
-      harga_toko: 0,
-      harga_dc: 0,
-      harga_khusus: 0,
-      diskon: 0,
-    }))
+    const rawItems = jsonData
+      .slice(1)
+      .map(row => ({
+        kode: String(row[0] || "").trim(),        
+        nama_barang: String(row[1] || "").trim(), 
+        lokasi: "ALL",                               
+        harga_toko: 0,
+        harga_khusus: Number(
+          String(row[6] || "").replace(/[^\d]/g, "")
+        ) || 0,                                   
+        diskon: 0,
+      }))
       .filter(item => item.kode && item.nama_barang)
+
+
 
     const uniqueMap = new Map<string, any>()
     rawItems.forEach(item => {
@@ -611,7 +610,6 @@ export default function Barang({ products }: { products: Product[] }) {
       "Nama Barang": item.nama_barang,
       Lokasi: item.lokasi,
       "Harga Toko": item.harga_toko,
-      "Harga DC": item.harga_dc,
       "Harga Khusus": item.harga_khusus,
       "Diskon %": item.diskon,
       "Harga Setelah Diskon": hargaSetelahDiskon(item.harga_khusus, item.diskon),
@@ -677,7 +675,6 @@ export default function Barang({ products }: { products: Product[] }) {
       nama_barang: item.nama_barang,
       lokasi: item.lokasi,
       harga_toko: item.harga_toko,
-      harga_dc: item.harga_dc,
       harga_khusus: item.harga_khusus,
       diskon: item.diskon
     })
@@ -751,7 +748,7 @@ export default function Barang({ products }: { products: Product[] }) {
                   </DialogHeader>
                   <Input
                     type="file"
-                    accept=".xlsx,.xls"
+                    accept=".xlsx,.xls,.CSV,.csv"
                     onChange={(e) => setImportFile(e.target.files?.[0] || null)}
                   />
                   <Button
@@ -784,7 +781,7 @@ export default function Barang({ products }: { products: Product[] }) {
                   <DialogHeader>
                     <DialogTitle>Pengaturan Cetak</DialogTitle>
                   </DialogHeader>
-                  
+
                   {selectedItems.length > 0 ? (
                     <div className="space-y-4">
                       <div className="space-y-2">
@@ -857,7 +854,7 @@ export default function Barang({ products }: { products: Product[] }) {
                           <span>Cetak Price Tag</span>
                           <span className="text-xs text-muted-foreground">(Printer)</span>
                         </Button>
-                        
+
                         <Button
                           variant="outline"
                           onClick={() => generatePdf(selectedItems, fileName)}
@@ -868,7 +865,7 @@ export default function Barang({ products }: { products: Product[] }) {
                           <span>Download Price Tag</span>
                           <span className="text-xs text-muted-foreground">(PDF)</span>
                         </Button>
-                        
+
                         <Button
                           variant="outline"
                           onClick={handlePrintBarcode}
@@ -878,7 +875,7 @@ export default function Barang({ products }: { products: Product[] }) {
                           <span>Cetak Barcode</span>
                           <span className="text-xs text-muted-foreground">(Printer)</span>
                         </Button>
-                        
+
                         <Button
                           variant="outline"
                           onClick={() => generatePdfBarcode(selectedItems, fileName)}
@@ -943,19 +940,6 @@ export default function Barang({ products }: { products: Product[] }) {
                           onChange={(e) => {
                             const raw = e.target.value.replace(/\D/g, "")
                             setData("harga_toko", Number(raw))
-                          }}
-                          className="bg-transparent border-black/20 text-black placeholder:text-black/40 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-0 focus-visible:border-orange-500"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Harga DC</Label>
-                        <Input
-                          type="text"
-                          inputMode="numeric"
-                          value={formatAngka(data.harga_dc)}
-                          onChange={(e) => {
-                            const raw = e.target.value.replace(/\D/g, "")
-                            setData("harga_dc", Number(raw))
                           }}
                           className="bg-transparent border-black/20 text-black placeholder:text-black/40 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-0 focus-visible:border-orange-500"
                         />
@@ -1075,7 +1059,6 @@ export default function Barang({ products }: { products: Product[] }) {
                   {visibleColumns.nama_barang && <TableHead className="min-w-48 max-w-64 whitespace-nowrap">Nama Barang</TableHead>}
                   {visibleColumns.lokasi && <TableHead className="w-24 whitespace-nowrap">Lokasi</TableHead>}
                   {visibleColumns.harga_toko && <TableHead className="w-32 whitespace-nowrap">Harga Toko</TableHead>}
-                  {visibleColumns.harga_dc && <TableHead className="w-32 whitespace-nowrap">Harga DC</TableHead>}
                   {visibleColumns.harga_khusus && <TableHead className="w-32 whitespace-nowrap">Harga Khusus</TableHead>}
                   {visibleColumns.diskon && <TableHead className="w-24 whitespace-nowrap text-center">Diskon</TableHead>}
                   {visibleColumns.barcode && <TableHead className="w-48 whitespace-nowrap">Barcode</TableHead>}
@@ -1119,11 +1102,6 @@ export default function Barang({ products }: { products: Product[] }) {
                     {visibleColumns.harga_toko && (
                       <TableCell>
                         <span className="text-sm whitespace-nowrap">{formatRupiah(item.harga_toko)}</span>
-                      </TableCell>
-                    )}
-                    {visibleColumns.harga_dc && (
-                      <TableCell>
-                        <span className="text-sm whitespace-nowrap">{formatRupiah(item.harga_dc)}</span>
                       </TableCell>
                     )}
                     {visibleColumns.harga_khusus && (
@@ -1211,7 +1189,7 @@ export default function Barang({ products }: { products: Product[] }) {
               <span className="text-sm text-muted-foreground">
                 Halaman {currentPage} dari {totalPages} • Total {totalItems} data
               </span>
-              
+
               <div className="flex flex-wrap items-center gap-1">
                 <Button
                   size="sm"
@@ -1229,7 +1207,7 @@ export default function Barang({ products }: { products: Product[] }) {
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                
+
                 {getPaginationRange().map((page) => (
                   <Button
                     key={page}
@@ -1241,7 +1219,7 @@ export default function Barang({ products }: { products: Product[] }) {
                     {page}
                   </Button>
                 ))}
-                
+
                 <Button
                   size="sm"
                   variant="outline"

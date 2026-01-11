@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import {
-  LayoutDashboard,
   Boxes,
   ClipboardCheck,
   User,
@@ -45,8 +44,8 @@ export default function Sidebar() {
         </div>
 
         <nav className="space-y-2 flex-1">
-          <SidebarItem icon={<LayoutDashboard size={16} />} label="Dashboard" link="/dashboard" />
-          <SidebarItem icon={<Boxes size={16} />} label="Master Barang" link="/barang" />
+          <SidebarItem icon={<Boxes size={16} />} label="Master Barang" link="/masterbarang" />
+          <SidebarItem icon={<Boxes size={16} />} label="Barang V2" link="/barang" />
           <SidebarItem icon={<ClipboardCheck size={16} />} label="Opname Stok" link="/stok/opname" />
           <SidebarItem icon={<Scan size={16} />} label="Scan Fisik" link="/stok/scan-fisik" />
           <SidebarItem icon={<BarChart3 size={16} />} label="Laporan" link="/laporan" />

@@ -17,7 +17,6 @@ return new class extends Migration
             $table->string('nama_barang');
             $table->string('lokasi');
             $table->decimal('harga_toko', 15, 2);
-            $table->decimal('harga_dc', 15, 2);
             $table->decimal('harga_khusus', 15, 2)->default(0);
             $table->decimal('diskon', 5, 2)->default(0);
             $table->timestamps();

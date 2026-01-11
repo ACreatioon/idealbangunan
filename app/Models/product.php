@@ -11,7 +11,6 @@ class product extends Model
         "nama_barang",
         "lokasi",
         "harga_toko",
-        "harga_dc",
         "harga_khusus",
         "diskon"
     ];

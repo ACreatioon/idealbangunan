@@ -21,7 +21,7 @@ class RoleMiddleware
         }
 
         if (Auth::user()->role !== 'Administrator'){
-            return redirect('/dashboard');
+            return redirect('/barang');
         }
 
         return $next($request);

@@ -26,14 +26,14 @@ class ScanFisikController extends Controller
             );
         }
 
-        return back()->with('success', 'Import berhasil');
+        return back();
     }
 
     public function delete($id)
     {
         ScanFisik::findOrFail($id)->delete();
 
-        return redirect()->back()->with('success', 'Data scan fisik berhasil dihapus');
+        return redirect()->back();
     }
 
     public function update(Request $request, $id)
@@ -53,6 +53,6 @@ class ScanFisikController extends Controller
     {
         ScanFisik::truncate();
 
-        return redirect()->back()->with('success', 'Data scan fisik berhasil direset');
+        return redirect()->back();
     }
 }

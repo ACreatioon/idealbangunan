@@ -16,9 +16,15 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Trash2, Upload, RotateCcw, Pencil } from "lucide-react"
-import { router, useForm } from "@inertiajs/react"
-import { useEffect, useRef } from "react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Trash2, Upload, RotateCcw, Pencil, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search } from "lucide-react"
+import { router } from "@inertiajs/react"
 import { useState } from "react"
 import * as XLSX from "xlsx"
 
@@ -30,14 +36,53 @@ interface ScanFisik {
 }
 
 export default function ScanFisik({ data }: { data: ScanFisik[] }) {
-  const inputRef = useRef<HTMLInputElement>(null)
   const [editOpen, setEditOpen] = useState(false)
   const [editId, setEditId] = useState<number | null>(null)
   const [editQty, setEditQty] = useState<number>(0)
   const [importFile, setImportFile] = useState<File | null>(null)
-  const { data: form, setData, post, reset } = useForm({
-    kode: "",
+  
+  // State untuk filter dan pagination
+  const [search, setSearch] = useState("")
+  const [selectedInspector, setSelectedInspector] = useState<string>("all")
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 10
+  
+  // Ambil daftar inspector unik dari data
+  const inspectors = Array.from(new Set(data.map(item => item.inspector))).filter(Boolean)
+  
+  // Filter data berdasarkan search dan inspector
+  const filteredData = data.filter(item => {
+    const matchesSearch = item.kode.toLowerCase().includes(search.toLowerCase())
+    const matchesInspector = selectedInspector === "all" || item.inspector === selectedInspector
+    return matchesSearch && matchesInspector
   })
+  
+  // Hitung total data
+  const totalItems = filteredData.length
+  const totalPages = Math.ceil(totalItems / itemsPerPage)
+  
+  // Paginate data
+  const paginatedData = filteredData.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  )
+  
+  // Fungsi untuk mendapatkan range pagination
+  const getPaginationRange = () => {
+    const start = Math.max(1, currentPage - 2)
+    const end = Math.min(totalPages, currentPage + 2)
+    
+    const pages = []
+    for (let i = start; i <= end; i++) {
+      pages.push(i)
+    }
+    return pages
+  }
+  
+  // Reset ke halaman 1 ketika filter berubah
+  const handleFilterChange = () => {
+    setCurrentPage(1)
+  }
 
   const handleImportExcel = async () => {
     if (!importFile) {
@@ -73,30 +118,10 @@ export default function ScanFisik({ data }: { data: ScanFisik[] }) {
       onSuccess: () => {
         setImportFile(null)
         alert("Import berhasil")
+        handleFilterChange()
       }
     })
   }
-
-
-  useEffect(() => {
-    inputRef.current?.focus()
-  }, [])
-
-  useEffect(() => {
-    if (!form.kode) return
-
-    const timer = setTimeout(() => {
-      post("/stok/scan-fisik", {
-        preserveScroll: true,
-        onSuccess: () => {
-          reset()
-          inputRef.current?.focus()
-        },
-      })
-    }, 300)
-
-    return () => clearTimeout(timer)
-  }, [form.kode, post, reset])
 
   const handleExport = () => {
     if (data.length === 0) {
@@ -107,6 +132,7 @@ export default function ScanFisik({ data }: { data: ScanFisik[] }) {
     const exportData = data.map((item, index) => ({
       No: index + 1,
       Kode: item.kode,
+      Inspector: item.inspector,
       Qty: item.qty,
     }))
 
@@ -139,160 +165,284 @@ export default function ScanFisik({ data }: { data: ScanFisik[] }) {
     )
   }
 
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!form.kode) return
-
-    post("/stok/scan-fisik", {
-      preserveScroll: true,
-      onSuccess: () => {
-        reset()
-        inputRef.current?.focus()
-      },
-    })
-  }
-
   const handleDelete = (id: number) => {
     if (!confirm("Hapus data scan ini?")) return
-    router.delete(`/stok/scan-fisik/${id}`)
+    router.delete(`/stok/scan-fisik/${id}`, {
+      preserveScroll: true,
+      onSuccess: () => {
+        // Jika halaman kosong setelah hapus, mundur ke halaman sebelumnya
+        if (paginatedData.length === 1 && currentPage > 1) {
+          setCurrentPage(prev => prev - 1)
+        }
+      }
+    })
   }
 
   const handleReset = () => {
     if (!confirm("Reset semua hasil scan?")) return
-    router.post("/stok/scan-fisik/reset")
+    router.post("/stok/scan-fisik/reset", {
+      preserveScroll: true,
+      onSuccess: () => {
+        setCurrentPage(1)
+      }
+    })
   }
 
   return (
     <AppLayout
       title="Scan Fisik"
-      subtitle="Scan barang menggunakan barcode"
+      subtitle="Daftar hasil scan fisik barang"
     >
       <div className="flex flex-col gap-4">
 
-        <div className="flex items-center justify-between">
-          <div className="flex gap-2">
-            <Input
-              type="file"
-              accept=".xlsx,.xls,.csv"
-              onChange={(e) => setImportFile(e.target.files?.[0] || null)}
-            />
-
-            <Button
-              onClick={handleImportExcel}
-              className="bg-orange-500 hover:bg-orange-600 text-white"
+        {/* Filter dan Actions */}
+        <div className="flex flex-col lg:flex-row gap-4 justify-between">
+          {/* Filter Section */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1 sm:w-64">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Cari kode barcode..."
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value)
+                  handleFilterChange()
+                }}
+                className="pl-10"
+              />
+            </div>
+            
+            <Select
+              value={selectedInspector}
+              onValueChange={(value) => {
+                setSelectedInspector(value)
+                handleFilterChange()
+              }}
             >
-              <Upload className="mr-2 h-4 w-4" />
-              Import Excel
-            </Button>
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue placeholder="Pilih Inspector" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Inspector</SelectItem>
+                {inspectors.map((inspector, index) => (
+                  <SelectItem key={index} value={inspector}>
+                    {inspector}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
+
+          {/* Action Buttons */}
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={handleExport}>
+            <div className="flex gap-2">
+              <Input
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                className="w-40"
+              />
+
+              <Button
+                onClick={handleImportExcel}
+                className="bg-orange-500 hover:bg-orange-600 text-white"
+                disabled={!importFile}
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                Import
+              </Button>
+            </div>
+            
+            <Button variant="outline" onClick={handleExport} disabled={data.length === 0}>
               <Upload className="mr-2 h-4 w-4" />
-              Export Scan
+              Export
             </Button>
 
             <Button
               variant="destructive"
               onClick={handleReset}
+              disabled={data.length === 0}
             >
               <RotateCcw className="mr-2 h-4 w-4" />
-              Reset Scan
+              Reset
             </Button>
           </div>
         </div>
 
+        {/* Tabel Data */}
         <div className="border rounded-md overflow-hidden w-full">
-          <Table className="w-full table-fixed">
-            <TableHeader className="bg-muted/50">
+          <Table className="w-full">
+            <TableHeader className="bg-gray-50">
               <TableRow>
-                <TableHead className="text-center">No</TableHead>
-                <TableHead>Kode</TableHead>
+                <TableHead className="text-center w-16">No</TableHead>
+                <TableHead>Kode Barcode</TableHead>
                 <TableHead>Inspector</TableHead>
                 <TableHead className="text-center">Qty</TableHead>
-                <TableHead className="text-center">Aksi</TableHead>
+                <TableHead className="text-center w-24">Aksi</TableHead>
               </TableRow>
             </TableHeader>
 
             <TableBody>
-              {data.length === 0 && (
+              {paginatedData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground">
-                    Belum ada data scan
+                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                    {data.length === 0 
+                      ? "Belum ada data scan" 
+                      : "Tidak ada data yang sesuai dengan filter"}
                   </TableCell>
                 </TableRow>
+              ) : (
+                paginatedData.map((item, index) => (
+                  <TableRow key={item.id} className="hover:bg-gray-50">
+                    <TableCell className="text-center">
+                      {(currentPage - 1) * itemsPerPage + index + 1}
+                    </TableCell>
+
+                    <TableCell className="font-mono">{item.kode}</TableCell>
+                    <TableCell>
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        {item.inspector || "Tidak ada"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-center font-semibold">{item.qty}</TableCell>
+
+                    <TableCell className="text-center">
+                      <div className="flex justify-center gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => openEdit(item)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Pencil className="h-4 w-4 text-blue-500" />
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDelete(item.id)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
               )}
-
-              {data.map((item, index) => (
-                <TableRow key={item.id}>
-                  <TableCell className="text-center">
-                    {index + 1}
-                  </TableCell>
-
-                  <TableCell className="font-mono">{item.kode}</TableCell>
-                  <TableCell>{item.inspector}</TableCell>
-                  <TableCell className="text-center font-semibold">{item.qty}</TableCell>
-
-                  <TableCell className="text-center">
-                    <div className="flex justify-center gap-1">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => openEdit(item)}
-                      >
-                        <Pencil className="h-4 w-4 text-blue-500" />
-                      </Button>
-
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => handleDelete(item.id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-red-500" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
             </TableBody>
           </Table>
 
-          <Dialog open={editOpen} onOpenChange={setEditOpen}>
-            <DialogContent className="sm:max-w-[400px]">
-              <DialogHeader>
-                <DialogTitle>Edit Qty Scan</DialogTitle>
-              </DialogHeader>
-
-              <div className="space-y-3">
-                <div>
-                  <label className="text-sm font-medium">Qty</label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={editQty}
-                    onChange={(e) => setEditQty(Number(e.target.value))}
-                  />
-                </div>
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-t">
+              <div className="text-sm text-gray-600">
+                Menampilkan <span className="font-semibold">{(currentPage - 1) * itemsPerPage + 1}</span> -{" "}
+                <span className="font-semibold">
+                  {Math.min(currentPage * itemsPerPage, totalItems)}
+                </span>{" "}
+                dari <span className="font-semibold">{totalItems}</span> data
+                {selectedInspector !== "all" && (
+                  <span className="ml-2">
+                    (Filter: {selectedInspector})
+                  </span>
+                )}
               </div>
-
-              <DialogFooter className="mt-4">
+              
+              <div className="flex items-center gap-1">
                 <Button
+                  size="sm"
                   variant="outline"
-                  onClick={() => setEditOpen(false)}
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(1)}
+                  className="h-8 w-8 p-0"
                 >
-                  Batal
+                  <ChevronsLeft className="h-4 w-4" />
                 </Button>
-
                 <Button
-                  onClick={submitEdit}
-                  className="bg-orange-500 hover:bg-orange-600 text-white"
+                  size="sm"
+                  variant="outline"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(prev => prev - 1)}
+                  className="h-8 w-8 p-0"
                 >
-                  Simpan
+                  <ChevronLeft className="h-4 w-4" />
                 </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+                
+                <div className="flex gap-1 mx-2">
+                  {getPaginationRange().map((page) => (
+                    <Button
+                      key={page}
+                      size="sm"
+                      variant={page === currentPage ? "default" : "outline"}
+                      className={page === currentPage ? "bg-orange-500 hover:bg-orange-600" : ""}
+                      onClick={() => setCurrentPage(page)}
+                    >
+                      {page}
+                    </Button>
+                  ))}
+                </div>
+                
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(prev => prev + 1)}
+                  className="h-8 w-8 p-0"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(totalPages)}
+                  className="h-8 w-8 p-0"
+                >
+                  <ChevronsRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
+
+        <Dialog open={editOpen} onOpenChange={setEditOpen}>
+          <DialogContent className="sm:max-w-[400px]">
+            <DialogHeader>
+              <DialogTitle>Edit Qty Scan</DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Quantity</label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={editQty}
+                  onChange={(e) => setEditQty(Number(e.target.value))}
+                  className="text-lg py-2"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setEditOpen(false)}
+              >
+                Batal
+              </Button>
+
+              <Button
+                onClick={submitEdit}
+                className="bg-orange-500 hover:bg-orange-600 text-white"
+              >
+                Simpan Perubahan
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   )

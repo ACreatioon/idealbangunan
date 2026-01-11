@@ -22,7 +22,6 @@ class LaporanController extends Controller
                 'satuan'
             ])->orderBy('kode')->get();
 
-            // Ambil semua data scan fisik
             $scanfisik = Scanfisik::select([
                 'id',
                 'kode',
@@ -55,10 +54,8 @@ class LaporanController extends Controller
             $opname = $this->getFilteredOpname($request);
             $scanfisik = $this->getFilteredScanFisik($request);
 
-            // Proses data untuk export
             $laporanData = $this->processLaporanData($opname, $scanfisik);
 
-            // Return data untuk di-export di frontend
             return response()->json([
                 'success' => true,
                 'data' => $laporanData,
@@ -74,9 +71,6 @@ class LaporanController extends Controller
         }
     }
 
-    /**
-     * Hapus data scan fisik (jika diperlukan)
-     */
     public function destroyScanFisik($id)
     {
         try {
@@ -89,9 +83,6 @@ class LaporanController extends Controller
         }
     }
 
-    /**
-     * Helper: Get filtered opname data
-     */
     private function getFilteredOpname(Request $request)
     {
         $query = Opname::query();
@@ -107,10 +98,7 @@ class LaporanController extends Controller
         return $query->orderBy('kode')->get();
     }
 
-    /**
-     * Helper: Get filtered scan fisik data
-     */
-    private function getFilteredScanFisik(Request $request)
+        private function getFilteredScanFisik(Request $request)
     {
         $query = Scanfisik::query();
 
@@ -122,7 +110,6 @@ class LaporanController extends Controller
             });
         }
 
-        // Filter by date range jika ada
         if ($request->has('start_date') && !empty($request->start_date)) {
             $query->whereDate('created_at', '>=', $request->start_date);
         }
@@ -134,14 +121,10 @@ class LaporanController extends Controller
         return $query->orderBy('kode')->get();
     }
 
-    /**
-     * Helper: Process laporan data
-     */
     private function processLaporanData($opname, $scanfisik)
     {
         $processedData = [];
         
-        // Group scan data by kode (jumlahkan qty per kode)
         $scanMap = [];
         foreach ($scanfisik as $scan) {
             $kode = $scan->kode;
@@ -154,13 +137,11 @@ class LaporanController extends Controller
             }
             $scanMap[$kode]['total_qty'] += $scan->qty;
             
-            // Simpan inspector unik
             if ($scan->inspector && !in_array($scan->inspector, $scanMap[$kode]['inspectors'])) {
                 $scanMap[$kode]['inspectors'][] = $scan->inspector;
             }
         }
 
-        // Process opname data
         foreach ($opname as $item) {
             $sisa_opname = $item->stok_awal + $item->masuk - $item->keluar;
             $scanData = $scanMap[$item->kode] ?? null;
@@ -182,8 +163,6 @@ class LaporanController extends Controller
             ];
         }
 
-        // Optional: Tambahkan data scan yang tidak ada di opname
-        // (Jika ingin melihat barang yang discan tapi tidak ada di data master)
         foreach ($scanMap as $kode => $scanData) {
             $exists = false;
             foreach ($opname as $item) {

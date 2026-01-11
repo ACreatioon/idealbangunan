@@ -26,7 +26,7 @@ class OpnameController extends Controller
             'satuan'
         ]));
 
-        return redirect()->route('stok.opname')->with('success', 'Opname berhasil di tambahkan');
+        return redirect()->route('stok.opname');
     }
 
     public function import(Request $request)
@@ -49,7 +49,7 @@ class OpnameController extends Controller
             );
         }
 
-        return back()->with('success', 'Data berhasil diimport');
+        return back();
     }
 
     public function update(Request $request, $id)
@@ -65,14 +65,14 @@ class OpnameController extends Controller
             'satuan'
         ]));
 
-        return redirect()->back()->with('success', 'Opname berhasil di update');
+        return redirect()->back();
     }
 
     public function delete($id)
     {
         $opname = opname::findOrFail($id);
         $opname->delete();
-        return redirect()->back()->with('success', 'Opname berhasil di hapus');
+        return redirect()->back();
     }
 
     public function deleteSelected(Request $request)
