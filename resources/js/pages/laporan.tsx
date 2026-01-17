@@ -61,7 +61,7 @@ export default function Laporan({
   const [laporanData, setLaporanData] = useState<LaporanItem[]>([])
   const [exportLoading, setExportLoading] = useState(false)
   const [showAll, setShowAll] = useState(false)
-
+  const normalizeKode = (kode: string) => kode.trim().toUpperCase()
   const ITEMS_PER_PAGE = 15
   const [currentPage, setCurrentPage] = useState(1)
 
@@ -74,19 +74,24 @@ export default function Laporan({
 
     const scanMap = new Map<string, ScanFisik>()
     scanData.forEach(scan => {
-      if (scanMap.has(scan.kode)) {
-        const existing = scanMap.get(scan.kode)!
-        scanMap.set(scan.kode, {
+      const kode = normalizeKode(scan.kode)
+
+      if (scanMap.has(kode)) {
+        const existing = scanMap.get(kode)!
+        scanMap.set(kode, {
           ...existing,
           qty: existing.qty + scan.qty
         })
       } else {
-        scanMap.set(scan.kode, scan)
+        scanMap.set(kode, {
+          ...scan,
+          kode
+        })
       }
     })
 
     opnameData.forEach(item => {
-      const scanItem = scanMap.get(item.kode)
+      const scanItem = scanMap.get(normalizeKode(item.kode))
       const sisa_opname = item.stok_awal + item.masuk - item.keluar
       const qty_scan = scanItem?.qty || 0
       const selisih = qty_scan - sisa_opname

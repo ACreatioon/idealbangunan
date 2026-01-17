@@ -14,4 +14,10 @@ class product extends Model
         "harga_khusus",
         "diskon"
     ];
+    
+    protected $casts = [
+        'harga_toko' => 'float',
+        'harga_khusus' => 'float',
+        'diskon' => 'float',
+    ];
 }

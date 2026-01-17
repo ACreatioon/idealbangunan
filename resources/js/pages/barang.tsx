@@ -238,8 +238,8 @@ export default function BarangV2({ products }: { products: Product[] }) {
 
   const getHeaderColor = (diskon: number) => {
     if (diskon <= 0) return { bg: "#fbbf24", text: "#000000" }
-    
-    switch(printSettings.headerColor) {
+
+    switch (printSettings.headerColor) {
       case "#dc2626":
         return { bg: "#dc2626", text: "#ffffff" }
       case "#16a34a":
@@ -295,7 +295,7 @@ export default function BarangV2({ products }: { products: Product[] }) {
         pdf.setLineWidth(0.3)
         pdf.setDrawColor(0)
         pdf.rect(x, y, labelWidth, labelHeight)
-        
+
         const headerColor = getHeaderColor(item.diskon)
         const rgb = hexToRgb(headerColor.bg)
         if (rgb) {
@@ -409,67 +409,38 @@ export default function BarangV2({ products }: { products: Product[] }) {
   }
 
   const generatePdfBarcode = async (items: SelectedItem[], fileName: string) => {
-    try {
-      setIsGenerating(true)
-      const { default: jsPDF } = await import("jspdf")
-      const pdf = new jsPDF("p", "mm", "a4")
+    const { default: jsPDF } = await import("jspdf")
 
-      const cols = 3
-      const gapX = 8
-      const gapY = 12
-      const barcodeWidth = 50
-      const barcodeHeight = 18
-      const marginX = 10
-      const marginY = 12
+    const pdf = new jsPDF({
+      orientation: "landscape",
+      unit: "mm",
+      format: [50, 25],
+    })
 
-      let index = 0
+    let first = true
 
-      const expandedItems = items.flatMap(item =>
-        Array.from({ length: item.qty }, () => item)
-      )
+    const expandedItems = items.flatMap(item =>
+      Array.from({ length: item.qty }, () => item)
+    )
 
-      expandedItems.forEach((item) => {
-        const col = index % cols
-        const row = Math.floor(index / cols)
-        let x = marginX + col * (barcodeWidth + gapX)
-        let y = marginY + row * (barcodeHeight + gapY)
-        if (y + barcodeHeight > 290) {
-          pdf.addPage()
-          index = 0
-          x = marginX
-          y = marginY
-        }
+    expandedItems.forEach(item => {
+      if (!first) pdf.addPage()
+      first = false
 
-        const canvas = document.createElement("canvas")
-        const scale = 3
-        const ctx = canvas.getContext("2d")
-        if (!ctx) return
-        canvas.width = 400 * scale
-        canvas.height = 120 * scale
-        ctx.scale(scale, scale)
-
-        JsBarcode(canvas, item.kode, {
-          format: "CODE128",
-          width: 1,
-          height: 25,
-          displayValue: true,
-          fontSize: 10,
-        })
-
-        const img = canvas.toDataURL("image/png")
-        const imgProps = pdf.getImageProperties(img)
-        const pdfWidth = 50
-        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width
-
-        pdf.addImage(img, "PNG", x, y, pdfWidth, pdfHeight)
-
-        index++
+      const canvas = document.createElement("canvas")
+      JsBarcode(canvas, item.kode, {
+        format: "CODE128",
+        width: 1.2,
+        height: 18,
+        displayValue: false,
+        margin: 0,
       })
 
-      pdf.save(`${fileName || "barcode"}.pdf`)
-    } finally {
-      setIsGenerating(false)
-    }
+      const img = canvas.toDataURL("image/png")
+      pdf.addImage(img, "PNG", 2, 3, 46, 18)
+    })
+
+    pdf.save(`${fileName || "barcode-50x25"}.pdf`)
   }
 
   const handlePrintPriceTag = () => {
@@ -502,8 +473,8 @@ export default function BarangV2({ products }: { products: Product[] }) {
       <body>
         <div class="print-container">
           ${selectedItems.flatMap(item => {
-            const headerColor = getHeaderColor(item.diskon)
-            return Array.from({ length: item.qty }, (_, index) => `
+      const headerColor = getHeaderColor(item.diskon)
+      return Array.from({ length: item.qty }, (_, index) => `
               <div class="price-tag">
                 <div style="background-color: ${headerColor.bg}; color: ${headerColor.text}; padding: 5px; margin: -10px -10px 10px -10px; text-align: center;">
                   <strong>${item.kode}</strong><br>
@@ -524,7 +495,7 @@ export default function BarangV2({ products }: { products: Product[] }) {
                 <div class="date">${new Date().toLocaleDateString('id-ID')}</div>
               </div>
             `).join('')
-          }).join('')}
+    }).join('')}
         </div>
         <script>
           window.onload = () => {
@@ -541,52 +512,85 @@ export default function BarangV2({ products }: { products: Product[] }) {
   }
 
   const handlePrintBarcode = () => {
-    const printWindow = window.open('', '_blank')
+    const printWindow = window.open("", "_blank")
     if (!printWindow) return
 
-    const printContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Cetak Barcode</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 20px; }
-          .barcode-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-          .barcode-item { text-align: center; page-break-inside: avoid; }
-          .barcode-name { font-size: 12px; margin-bottom: 5px; }
-        </style>
-        <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
-      </head>
-      <body>
-        <div class="barcode-container">
-          ${selectedItems.flatMap(item =>
-      Array.from({ length: item.qty }, (_, index) => `
-              <div class="barcode-item">
-                <div class="barcode-name">${item.nama_barang}</div>
-                <svg class="barcode"
-                  jsbarcode-format="CODE128"
-                  jsbarcode-value="${item.kode}"
-                  jsbarcode-textmargin="0"
-                  jsbarcode-fontoptions="bold">
-                </svg>
-              </div>
-            `).join('')
-    ).join('')}
-        </div>
-        <script>
-          JsBarcode(".barcode").init();
-          setTimeout(() => {
-            window.print();
-            window.onafterprint = () => window.close();
-          }, 500);
-        <\/script>
-      </body>
-      </html>
-    `
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Cetak Barcode 50x25</title>
+  <style>
+    @page {
+      size: 50mm 25mm;
+      margin: 0;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+    }
+    .label {
+      width: 50mm;
+      height: 25mm;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      page-break-after: always;
+    }
+    svg {
+      width: 46mm;
+      height: 18mm;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+</head>
+<body>
+  ${selectedItems.flatMap(item =>
+      Array.from({ length: item.qty }, () => `
+      <div class="label">
+        <svg class="barcode" jsbarcode-format="CODE128"
+             jsbarcode-value="${item.kode}"
+             jsbarcode-displayvalue="false"
+             jsbarcode-width="1.2"
+             jsbarcode-height="18">
+        </svg>
+      </div>
+    `).join("")
+    ).join("")}
 
-    printWindow.document.write(printContent)
+  <script>
+    JsBarcode(".barcode").init();
+    window.onload = () => {
+      window.print();
+      window.onafterprint = () => window.close();
+    }
+  </script>
+</body>
+</html>
+`
+
+    printWindow.document.write(html)
     printWindow.document.close()
   }
+
+  function parseExcelCeil(value: string | number): number {
+    if (value === null || value === undefined || value === "") return 0
+
+    let str = String(value).trim()
+
+    str = str.replace(/\s/g, "")
+    if (str.includes(".") && str.includes(",")) {
+      str = str.replace(/\./g, "")
+      str = str.replace(",", ".")
+    }
+
+    const num = Number(str)
+    if (isNaN(num)) return 0
+
+    return Math.ceil(num)
+  }
+
 
   const handleImport = async () => {
     if (!importFile) return alert("Pilih file terlebih dahulu")
@@ -604,12 +608,8 @@ export default function BarangV2({ products }: { products: Product[] }) {
         kode: String(row[0] || "").trim(),
         nama_barang: String(row[1] || "").trim(),
         lokasi: "ALL",
-        harga_toko: Math.floor(
-          (Number(String(row[4] || "").replace(/[^\d]/g, "")) || 0) / 1000
-        ),
-        harga_khusus: Math.floor(
-          (Number(String(row[6] || "").replace(/[^\d]/g, "")) || 0) / 1000
-        ),
+        harga_khusus: parseExcelCeil(row[6]),
+        harga_toko: parseExcelCeil(row[4]),
         diskon: 0,
       }))
       .filter(item => item.kode && item.nama_barang)
@@ -879,7 +879,7 @@ export default function BarangV2({ products }: { products: Product[] }) {
                           <Button
                             type="button"
                             variant="outline"
-                            className={`flex items-center gap-2 ${printSettings.headerColor.startsWith("#") && 
+                            className={`flex items-center gap-2 ${printSettings.headerColor.startsWith("#") &&
                               !["#dc2626", "#16a34a", "#2563eb"].includes(printSettings.headerColor) ? "ring-2 ring-orange-500" : ""}`}
                             onClick={() => {
                               const customColor = prompt("Masukkan kode warna HEX (contoh: #FF5733):", printSettings.headerColor)
@@ -1043,8 +1043,7 @@ export default function BarangV2({ products }: { products: Product[] }) {
                           inputMode="numeric"
                           value={formatAngka(data.harga_toko)}
                           onChange={(e) => {
-                            const raw = e.target.value.replace(/\D/g, "")
-                            setData("harga_toko", Number(raw))
+                            setData("harga_toko", parseRupiah(e.target.value))
                           }}
                           className="bg-transparent border-black/20 text-black placeholder:text-black/40 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-0 focus-visible:border-orange-500"
                         />
@@ -1058,8 +1057,7 @@ export default function BarangV2({ products }: { products: Product[] }) {
                           inputMode="numeric"
                           value={formatAngka(data.harga_khusus)}
                           onChange={(e) => {
-                            const raw = e.target.value.replace(/\D/g, "")
-                            setData("harga_khusus", Number(raw))
+                            setData("harga_khusus", parseRupiah(e.target.value))
                           }}
                           className="bg-transparent border-black/20 text-black placeholder:text-black/40 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-0 focus-visible:border-orange-500"
                         />
