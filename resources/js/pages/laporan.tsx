@@ -83,33 +83,44 @@ export default function Laporan({
           qty: existing.qty + scan.qty
         })
       } else {
-        scanMap.set(kode, {
-          ...scan,
-          kode
-        })
+        scanMap.set(kode, { ...scan, kode })
       }
     })
 
+    const opnameMap = new Map<string, Opname>()
     opnameData.forEach(item => {
-      const scanItem = scanMap.get(normalizeKode(item.kode))
-      const sisa_opname = item.stok_awal + item.masuk - item.keluar
-      const qty_scan = scanItem?.qty || 0
+      opnameMap.set(normalizeKode(item.kode), item)
+    })
+
+    const allKode = new Set([
+      ...opnameMap.keys(),
+      ...scanMap.keys()
+    ])
+
+    allKode.forEach(kode => {
+      const opnameItem = opnameMap.get(kode)
+      const scanItem = scanMap.get(kode)
+
+      const stok_awal = opnameItem?.stok_awal ?? 0
+      const masuk = opnameItem?.masuk ?? 0
+      const keluar = opnameItem?.keluar ?? 0
+      const sisa_opname = stok_awal + masuk - keluar
+      const qty_scan = scanItem?.qty ?? 0
       const selisih = qty_scan - sisa_opname
-      const harga_khusus = item.harga_khusus ?? 0
-      const harga_total = selisih * harga_khusus
+      const harga_khusus = opnameItem?.harga_khusus ?? 0
 
       processedData.push({
-        kode: item.kode,
-        nama_barang: item.nama_barang,
-        stok_awal: item.stok_awal,
-        masuk: item.masuk,
-        keluar: item.keluar,
+        kode,
+        nama_barang: opnameItem?.nama_barang ?? "❌ TIDAK ADA DI OPNAME",
+        stok_awal,
+        masuk,
+        keluar,
         sisa_opname,
         qty_scan,
         selisih,
         harga_khusus,
-        harga_total,
-        satuan: item.satuan,
+        harga_total: selisih * harga_khusus,
+        satuan: opnameItem?.satuan ?? "-",
         inspector: scanItem?.inspector,
         hasScan: scanItem !== undefined
       })
@@ -344,9 +355,13 @@ export default function Laporan({
                         {item.kode}
                       </TableCell>
                       <TableCell>
-                        <div className="max-w-xs truncate" title={item.nama_barang}>
-                          {item.nama_barang}
-                        </div>
+                        {item.nama_barang === "❌ TIDAK ADA DI OPNAME" ? (
+                          <span className="text-red-600 font-semibold">
+                            {item.nama_barang}
+                          </span>
+                        ) : (
+                          item.nama_barang
+                        )}
                       </TableCell>
                       <TableCell className="text-center">
                         {formatAngka(item.stok_awal)}
